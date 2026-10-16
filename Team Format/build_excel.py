@@ -35,8 +35,8 @@ HOW_TO_READ = (
     "does not count under that format. LP = league points (10 for 1st, 9 for 2nd, and so on down); Agg = aggregate, the sum "
     "of the team scores over the counted legs. Participation tables - number of archers whose scores counted towards the "
     "club's team in each leg (Total = sum over legs), shaded red (fewest) to green (most) within each table. "
-    "Impact - one comment under each league table: leader, change in overall (league) rank versus a stated reference, and "
-    "any gender shortfall. Shortfall entries read: club, leg (archers counted/team size, change in team score, change in leg "
+    "Impact - one comment under each league table: leader, change in overall (league) rank versus a stated reference, "
+    "any gender shortfall, and a short explanation (\"Why\") of what caused the rank changes. Shortfall entries read: club, leg (archers counted/team size, change in team score, change in leg "
     "rank; LOWER = ranked lower than without Proposal 2). See the 'Explanation' sheet for the formats and rules.")
 REF_TEAM = {"ENCT": "ENCT", "ST": "ENCT", "NNCT": "NNCT", "CT": None, "UST": None}  # gender-off comparison vs unchanged
 
@@ -44,7 +44,7 @@ HEAD = PatternFill("solid", fgColor="1F3864")
 SUB = PatternFill("solid", fgColor="D9E1F2")
 thin = Side(style="thin", color="999999")
 BOX = Border(left=thin, right=thin, top=thin, bottom=thin)
-BAND, BAND0, BLOCK_OFFSET, TABLE_STRIDE = 30, 6, 42, 13  # rows per band, first band row, cols between blocks/tables
+BAND, BAND0, BLOCK_OFFSET, TABLE_STRIDE = 34, 6, 42, 13  # rows per band, first band row, cols between blocks/tables
 
 
 def pos_changes(new: pd.Series, old: pd.Series) -> str:
@@ -53,11 +53,58 @@ def pos_changes(new: pd.Series, old: pd.Series) -> str:
     return ", ".join(mv) if mv else "unchanged"
 
 
+NNCT_ON = ("In 5 legs (Aberystwyth L3, Bath L5, Bristol L5, Exeter L3, Swansea L6) the best three novices were all Open, so a "
+           "Female was swapped in at a cost of 9-34 points. No leg rank or league position changed.")
+WHY = {  # hand-written overview of what caused the rank changes, one per league table (key: proposal, gender, team)
+    ("unchanged", False, "ENCT"): "Baseline, nothing to compare.",
+    ("unchanged", False, "NNCT"): "Baseline, nothing to compare.",
+    ("unchanged", False, "CT"): "Baseline. Most CT entries are one compound archer (Swansea scored with one in every leg), so the "
+                                "table reflects who turned up more than team depth.",
+    ("unchanged", True, "ENCT"): "In 15 club-legs an all-Open team had to swap in a lower-scoring Female (cost 9-241 points), and "
+                                 "Swansea scored with 3 in L1 and L7 (no Female available). This cost single-leg places (Exeter 1st to "
+                                 "2nd in L1, Swansea 3rd to 4th in L7) but the changes are small, so the league order holds.",
+    ("unchanged", True, "NNCT"): NNCT_ON,
+    ("unchanged", True, "CT"): "No change: the only two-archer compound teams (Exeter, Cardiff) were already mixed, and the rule does "
+                               "not affect single-archer teams.",
+    ("P1", False, "ENCT"): "Dropping the 4th scorer matters only where clubs' 4th archers differed: Cardiff rises 7th to 4th in L3 "
+                           "while Aberystwyth (4th to 6th) and Exeter (6th to 7th) fall, and Cardiff and Plymouth swap in L2. "
+                           "These are 1-2 point shifts, so the league order is unchanged.",
+    ("P1", False, "NNCT"): "Identical to the unchanged NNCT: the novice team has not changed.",
+    ("P1", False, "UST"): "New table, so no change to explain. Swansea leads on consistency (top 3 in 7 of 8 legs); Aberystwyth "
+                          "wins L1-L3 but fielded no unsighted team outdoors in L7.",
+    ("P1", True, "ENCT"): "In 21 club-legs a Female replaced a higher-scoring Open archer (up to about 260 points; Exeter 1st to 3rd in "
+                          "L1, Bath 1st to 2nd in L8), and Plymouth L2 and Swansea L1 and L7 scored with 2 as no Female was available. "
+                          "Bristol gains 4 league points and Plymouth and Swansea lose 2 each, but the order is unchanged.",
+    ("P1", True, "NNCT"): NNCT_ON,
+    ("P1", True, "UST"): "Swansea L4 (2nd to 4th), Bristol L2 (3rd to 4th) and Exeter L7 had only Open barebow/longbow archers, so "
+                         "only 2 scored; four small Female swaps moved Cardiff and Bristol by a place. Swansea loses 2 league "
+                         "points and Cardiff gains 2, but the order is unchanged.",
+    ("P1a", False, "ST"): "Compounds can now score (one per team) and barebow/longbow cannot: Cardiff, Exeter, Plymouth and Swansea "
+                          "field a compound in most indoor legs (Cardiff 7th to 2nd in L3, Exeter wins L1, L4, L5), while "
+                          "barebow-heavy Aberystwyth (6th to 8th) loses scorers. Dropping L7-8 costs the leaders 15-20 league points "
+                          "(Bath -20, Bristol -18, Exeter -15), so Exeter moves up to 1st and Bath down to 2nd.",
+    ("P1a", False, "NNCT"): "Only the loss of L7-8 differs (L1-6 are identical): Bath (-18), Exeter (-7) and UWE (-6) lose outdoor "
+                            "points, so Exeter passes Bath for 3rd, and Plymouth and Aberystwyth each move up one place as UWE "
+                            "falls from 5th to 7th.",
+    ("P1a", False, "UST"): "New table, so no change to explain. Aberystwyth leads by winning L1-L3 and loses little from L7-8 not "
+                           "counting (no L7 team, 5th in L8); Bristol and Swansea took their best results outdoors.",
+    ("P1a", True, "ST"): "Proposal 2 forces a Female into teams that had none: Exeter loses its compound-led L1 and L5 wins (1st to "
+                         "4th and 1st to 3rd), and Swansea, Plymouth and Aberystwyth scored with 2 in 5 legs (no Female available, "
+                         "up to -33%). Bristol, which already had Females in its teams, gains 3 league points and Bath moves up "
+                         "as Exeter drops: they finish level on 53 (Bath ahead on aggregate) and Exeter falls to 3rd.",
+    ("P1a", True, "NNCT"): NNCT_ON,
+    ("P1a", True, "UST"): "Swansea L4 (2nd to 4th) and Bristol L2 (3rd to 4th) had only Open barebow/longbow archers, so 2 scored; "
+                          "four small Female swaps moved Cardiff and Bristol by a place. Swansea loses 2 league points and Cardiff "
+                          "gains 2, but the order is unchanged.",
+}
+
+
 def table_comment(p: str, g: bool, team: str, R: dict) -> str:
-    """Impact comment for one league table, in a fixed three-line format.
+    """Impact comment for one league table, in a fixed four-line format.
 
     Line 1: leader and margin. Line 2: change in overall (league) rank versus a reference table.
     Line 3: gender shortfalls (single-gender pool => team below full size), with score and leg-rank effect.
+    Line 4: hand-written overview (WHY) of what caused the rank changes.
     Args: p proposal key, g gender flag, team team name, R all results. Returns: str.
     """
     r = R[(p, g)][team]
@@ -89,7 +136,7 @@ def table_comment(p: str, g: bool, team: str, R: dict) -> str:
                     ev.append(f"{club} L{leg} ({int(r['count'].loc[club, leg])}/{r['n']} archers, "
                               f"{(s1 - s0) / s0 * 100:+.0f}% score, rank {r0:.0f}->{r1:.0f}{flag})")
         gen = ("Gender shortfall (team not full): " + "; ".join(ev) + ".") if ev else "Gender shortfall: none."
-    out = [lead, rank, gen]
+    out = [lead, rank, gen, "Why: " + WHY[(p, g, team)]]
     ties = [f"{c} L{l}" for c, l in r["unresolved_ties"]]
     if ties:
         out.append("Unresolved score ties: " + ", ".join(ties) + ".")
@@ -275,7 +322,7 @@ def main():
         h = ws.cell(top, 1, ROW_HEADINGS[p])
         h.font = Font(bold=True, size=13, color="FFFFFF"); h.fill = HEAD
         h.alignment = Alignment(horizontal="center", vertical="center", text_rotation=90)
-        ws.merge_cells(start_row=top, start_column=1, end_row=top + 28, end_column=1)
+        ws.merge_cells(start_row=top, start_column=1, end_row=top + 32, end_column=1)
         for gi, g in enumerate((False, True)):
             for ti, (t, r) in enumerate(R[(p, g)].items()):
                 c0 = 3 + gi * BLOCK_OFFSET + ti * TABLE_STRIDE
@@ -285,8 +332,9 @@ def main():
                 ws.conditional_formatting.add(
                     f"{col(c0 + 2)}{top + 14}:{col(c0 + 1 + max(r['legs']))}{top + 21}", ColorScaleRule(**scale))
                 cell = ws.cell(top + 23, c0, "Impact: " + table_comment(p, g, t, R))
+                cell.font = Font(size=9)
                 cell.alignment = Alignment(wrap_text=True, vertical="top")
-                ws.merge_cells(start_row=top + 23, start_column=c0, end_row=top + 28, end_column=c0 + 11)
+                ws.merge_cells(start_row=top + 23, start_column=c0, end_row=top + 32, end_column=c0 + 11)
     build_explanation(wb)
     wb.save(OUT)
     print("saved", OUT)
